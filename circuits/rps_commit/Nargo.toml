@@ -1,0 +1,6 @@
+[package]
+name = "rps_commit"
+type = "bin"
+authors = ["Stellar Game Studio"]
+
+[dependencies]

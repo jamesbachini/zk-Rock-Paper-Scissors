@@ -1,0 +1,22 @@
+{
+  "name": "stellar-game-studio",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "setup": "bun run scripts/setup.ts",
+    "build": "bun run scripts/build.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "bindings": "bun run scripts/bindings.ts",
+    "create": "bun run scripts/create.ts",
+    "publish": "bun run scripts/publish.ts",
+    "dev": "bun --cwd=sgs_frontend run dev",
+    "dev:game": "bun run scripts/dev-game.ts",
+    "e2e": "node scripts/e2e.mjs"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^14.5.0"
+  }
+}

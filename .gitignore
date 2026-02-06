@@ -1,0 +1,41 @@
+test_snapshots/
+
+# Build artifacts
+target/
+*.wasm
+
+# Deployment info
+deployment.json
+
+# Bindings
+bindings/
+
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules/
+bun.lockb
+
+# Frontend build
+dist/
+sgs_frontend/dist/
+sgs_frontend/dist-node/
+sgs_frontend/*.tsbuildinfo
+frontend-template/dist/
+frontend-template/dist-node/
+frontend-template/*.tsbuildinfo
+*-frontend/dist/
+*-frontend/dist-node/
+*-frontend/*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+{
+  "name": "rps-commit-circuit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "nargo compile",
+    "artifacts": "node scripts/build-artifacts.mjs",
+    "prove": "node prove.mjs",
+    "prove:artifacts": "node scripts/build-proof-artifacts.mjs",
+    "clean": "rm -rf target artifacts"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "0.87.0",
+    "@noir-lang/noir_js": "1.0.0-beta.9"
+  }
+}

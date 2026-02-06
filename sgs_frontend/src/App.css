@@ -1,0 +1,129 @@
+.docs-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: stretch;
+  margin-bottom: 3rem;
+}
+
+.docs-hero .hero-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  animation: heroReveal 0.6s ease both;
+}
+
+.docs-hero .hero-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+}
+
+.docs-hero .hero-content h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 3vw + 1.2rem, 3.8rem);
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.docs-hero .hero-lede {
+  font-size: 1.05rem;
+  color: var(--color-ink-muted);
+  max-width: 38rem;
+}
+
+.docs-hero .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.docs-hero .hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.docs-hero .hero-tags span {
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.docs-hero .hero-panel {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+  padding: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  animation: heroReveal 0.6s ease 0.08s both;
+}
+
+.docs-hero .hero-panel-header {
+  font-size: 0.9rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  font-weight: 600;
+}
+
+.docs-hero .hero-steps {
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+  counter-reset: steps;
+  padding: 0;
+  margin: 0;
+}
+
+.docs-hero .hero-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-weight: 600;
+}
+
+.docs-hero .hero-code {
+  background: rgba(15, 15, 15, 0.06);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  border: 1px solid rgba(15, 15, 15, 0.08);
+}
+
+.docs-hero .hero-code code {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
+@keyframes heroReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .docs-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .docs-hero .hero-content h1 {
+    font-size: clamp(2.1rem, 4vw + 1rem, 3rem);
+  }
+}
