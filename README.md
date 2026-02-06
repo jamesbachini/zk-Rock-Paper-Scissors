@@ -1,4 +1,6 @@
-# Stellar Game Studio
+# Not working due to issues with TX limits
+
+## Do not use/fork
 
 Development Tools For Web3 Game Builders On Stellar.
 
