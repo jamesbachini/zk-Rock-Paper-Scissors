@@ -11,7 +11,6 @@ const circuit = JSON.parse(await readFile(targetPath, 'utf8'));
 const args = process.argv.slice(2);
 const move = args[0] ? Number(args[0]) : 1;
 const salt = args[1] ? BigInt(args[1]) : 123456789n;
-const sessionId = args[2] ? BigInt(args[2]) : 424242n;
 
 if (!Number.isInteger(move) || move < 0 || move > 2) {
   throw new Error(`move must be 0, 1, or 2 (got ${args[0] ?? move})`);
@@ -20,7 +19,6 @@ if (!Number.isInteger(move) || move < 0 || move > 2) {
 const inputs = {
   move,
   salt: salt.toString(),
-  session_id: sessionId.toString(),
 };
 
 const noir = new Noir(circuit);
@@ -62,8 +60,7 @@ if (movePublicBig !== BigInt(move)) {
 }
 
 const api = await BarretenbergSync.new();
-const inner = api.poseidon2Hash([new Fr(sessionId), new Fr(BigInt(move))]);
-const expectedCommitment = api.poseidon2Hash([inner, new Fr(salt)]);
+const expectedCommitment = api.poseidon2Hash([new Fr(BigInt(move)), new Fr(salt)]);
 const expectedCommitmentBig = BigInt(expectedCommitment.toString());
 
 if (toBigInt(commitment) !== expectedCommitmentBig) {

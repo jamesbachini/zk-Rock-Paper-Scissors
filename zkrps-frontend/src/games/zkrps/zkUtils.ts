@@ -62,20 +62,14 @@ export function bigIntToBytes32(value: bigint): Buffer {
   return Buffer.from(hex.padStart(FIELD_BYTES * 2, '0'), 'hex');
 }
 
-export async function computeCommitment(
-  sessionId: number,
-  move: number,
-  salt: bigint
-): Promise<bigint> {
+export async function computeCommitment(move: number, salt: bigint): Promise<bigint> {
   const bb = await getBarretenberg();
-  const inner = bb.poseidon2Hash([new Fr(BigInt(sessionId)), new Fr(BigInt(move))]);
-  const commitment = bb.poseidon2Hash([inner, new Fr(salt)]);
+  const commitment = bb.poseidon2Hash([new Fr(BigInt(move)), new Fr(salt)]);
   return BigInt(commitment.toString());
 }
 
 export async function generateProof(
   inputs: {
-    sessionId: number;
     move: number;
     salt: bigint;
   },
@@ -92,7 +86,6 @@ export async function generateProof(
   const { witness, returnValue } = await noir.execute({
     move: inputs.move,
     salt: inputs.salt.toString(),
-    session_id: inputs.sessionId.toString(),
   });
 
   const backend = new UltraHonkBackend((circuit as any).bytecode);
@@ -116,7 +109,7 @@ export async function generateProof(
     }
 
     onProgress?.('Validating commitment...');
-    const expectedCommitment = await computeCommitment(inputs.sessionId, inputs.move, inputs.salt);
+    const expectedCommitment = await computeCommitment(inputs.move, inputs.salt);
     if (commitment !== expectedCommitment) {
       throw new Error('Commitment does not match Poseidon2 hash');
     }

@@ -61,6 +61,27 @@ const NETWORK = 'testnet';
 const RPC_URL = 'https://soroban-testnet.stellar.org';
 const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
 const EXISTING_GAME_HUB_TESTNET_CONTRACT_ID = 'CB4VZAT2U3UC6XFK3N23SKRF2NDCMP3QHJYMCHHFMZO7MRQO6DQ2EMYG';
+const VERIFIER_PACKAGE = 'ultrahonk_soroban_contract';
+const RPS_GAME_PACKAGE = 'rps_game';
+const VK_PATH = 'circuits/rps_commit/artifacts/vk.bin';
+const COMMIT_WINDOW = 100;
+const REVEAL_WINDOW = 100;
+
+function extractWasmHash(output: string): string {
+  const match = output.match(/[0-9a-fA-F]{64}/);
+  if (!match) {
+    throw new Error(`Failed to parse WASM hash from output:\n${output}`);
+  }
+  return match[0];
+}
+
+function extractContractId(output: string): string {
+  const match = output.match(/C[A-Z2-7]{55}/);
+  if (!match) {
+    throw new Error(`Failed to parse contract ID from output:\n${output}`);
+  }
+  return match[0];
+}
 
 async function testnetAccountExists(address: string): Promise<boolean> {
   const res = await fetch(`https://horizon-testnet.stellar.org/accounts/${address}`, { method: 'GET' });
@@ -124,6 +145,8 @@ if (selection.unknown.length > 0 || selection.ambiguous.length > 0) {
 }
 
 const contracts = selection.contracts;
+const wantsVerifier = contracts.some((c) => c.packageName === VERIFIER_PACKAGE);
+const wantsRpsGame = contracts.some((c) => c.packageName === RPS_GAME_PACKAGE);
 const mock = allContracts.find((c) => c.isMockHub);
 if (!mock) {
   console.error("❌ Error: mock-game-hub contract not found in workspace members");
@@ -277,8 +300,8 @@ if (shouldEnsureMock) {
     console.log(`Deploying ${mock.packageName}...`);
     try {
       const result =
-        await $`stellar contract deploy --wasm ${mock.wasmPath} --source-account ${adminSecret} --network ${NETWORK}`.text();
-      mockGameHubId = result.trim();
+        await $`stellar contract deploy --wasm ${mock.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+      mockGameHubId = extractContractId(result);
       deployed[mock.packageName] = mockGameHubId;
       console.log(`✅ ${mock.packageName} deployed: ${mockGameHubId}\n`);
     } catch (error) {
@@ -288,23 +311,108 @@ if (shouldEnsureMock) {
   }
 }
 
+let verifierContractId = existingContractIds[VERIFIER_PACKAGE] || "";
+if (wantsVerifier || wantsRpsGame) {
+  const candidateVerifierIds = [
+    existingContractIds[VERIFIER_PACKAGE],
+    existingDeployment?.contracts?.[VERIFIER_PACKAGE],
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidateVerifierIds) {
+    if (await testnetContractExists(candidate)) {
+      verifierContractId = candidate;
+      break;
+    }
+  }
+
+  if (verifierContractId) {
+    deployed[VERIFIER_PACKAGE] = verifierContractId;
+    console.log(`✅ Using existing ${VERIFIER_PACKAGE} on testnet: ${verifierContractId}\n`);
+  } else {
+    const verifierInfo = allContracts.find((c) => c.packageName === VERIFIER_PACKAGE);
+    if (!verifierInfo) {
+      console.error(`❌ Error: Missing ${VERIFIER_PACKAGE} contract info in workspace.`);
+      process.exit(1);
+    }
+
+    if (!await Bun.file(verifierInfo.wasmPath).exists()) {
+      console.error("❌ Error: Missing WASM build output for verifier:");
+      console.error(`  - ${verifierInfo.wasmPath}`);
+      console.error("\nRun 'bun run build verifier' first");
+      process.exit(1);
+    }
+
+    if (!await Bun.file(VK_PATH).exists()) {
+      console.error("❌ Error: Missing verification key file:");
+      console.error(`  - ${VK_PATH}`);
+      console.error("\nRun 'bun run compile' + 'bun run artifacts' in circuits/rps_commit first");
+      process.exit(1);
+    }
+
+    console.log(`Deploying ${VERIFIER_PACKAGE}...`);
+    try {
+      console.log("  Uploading WASM...");
+      const uploadResult =
+        await $`stellar contract upload --wasm ${verifierInfo.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+      const wasmHash = extractWasmHash(uploadResult);
+      console.log(`  WASM hash: ${wasmHash}`);
+
+      console.log("  Deploying and initializing...");
+      const deployResult =
+        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK} -- --vk_bytes-file-path ${VK_PATH}`.text();
+      verifierContractId = extractContractId(deployResult);
+      deployed[VERIFIER_PACKAGE] = verifierContractId;
+      console.log(`✅ ${VERIFIER_PACKAGE} deployed: ${verifierContractId}\n`);
+    } catch (error) {
+      console.error(`❌ Failed to deploy ${VERIFIER_PACKAGE}:`, error);
+      process.exit(1);
+    }
+  }
+}
+
 for (const contract of contracts) {
   if (contract.isMockHub) continue;
+  if (contract.packageName === VERIFIER_PACKAGE) continue;
 
   console.log(`Deploying ${contract.packageName}...`);
   try {
-    console.log("  Installing WASM...");
-    const installResult =
-      await $`stellar contract install --wasm ${contract.wasmPath} --source-account ${adminSecret} --network ${NETWORK}`.text();
-    const wasmHash = installResult.trim();
+    console.log("  Uploading WASM...");
+    const uploadResult =
+      await $`stellar contract upload --wasm ${contract.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+    const wasmHash = extractWasmHash(uploadResult);
     console.log(`  WASM hash: ${wasmHash}`);
 
-    console.log("  Deploying and initializing...");
-    const deployResult =
-      await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --network ${NETWORK} -- --admin ${adminAddress} --game-hub ${mockGameHubId}`.text();
-    const contractId = deployResult.trim();
-    deployed[contract.packageName] = contractId;
-    console.log(`✅ ${contract.packageName} deployed: ${contractId}\n`);
+    if (contract.packageName === RPS_GAME_PACKAGE) {
+      console.log("  Deploying (no constructor)...");
+      const deployResult =
+        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+      const contractId = extractContractId(deployResult);
+      deployed[contract.packageName] = contractId;
+      console.log(`✅ ${contract.packageName} deployed: ${contractId}\n`);
+
+      if (!verifierContractId) {
+        console.error("❌ Error: verifier contract not available for rps_game init.");
+        process.exit(1);
+      }
+
+      console.log("  Initializing rps_game...");
+      try {
+        await $`stellar contract invoke --id ${contractId} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK} -- init --game_hub ${mockGameHubId} --verifier ${verifierContractId} --commit_window ${COMMIT_WINDOW} --reveal_window ${REVEAL_WINDOW}`;
+      } catch (error) {
+        const message = String(error);
+        if (!message.includes("AlreadyInitialized") && !message.includes("Error(Contract, #1)")) {
+          console.error("❌ Failed to initialize rps_game:", error);
+          process.exit(1);
+        }
+      }
+    } else {
+      console.log("  Deploying and initializing...");
+      const deployResult =
+        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK} -- --admin ${adminAddress} --game-hub ${mockGameHubId}`.text();
+      const contractId = extractContractId(deployResult);
+      deployed[contract.packageName] = contractId;
+      console.log(`✅ ${contract.packageName} deployed: ${contractId}\n`);
+    }
   } catch (error) {
     console.error(`❌ Failed to deploy ${contract.packageName}:`, error);
     process.exit(1);

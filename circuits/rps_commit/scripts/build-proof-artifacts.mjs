@@ -13,12 +13,9 @@ const circuit = JSON.parse(await readFile(targetPath, 'utf8'));
 
 const move = 1;
 const salt = 123456789n;
-const sessionId = 424242n;
-
 const inputs = {
   move,
   salt: salt.toString(),
-  session_id: sessionId.toString(),
 };
 
 const noir = new Noir(circuit);

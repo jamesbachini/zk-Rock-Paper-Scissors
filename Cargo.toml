@@ -23,3 +23,15 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
+
+[profile.release.package.ultrahonk_soroban_contract]
+opt-level = 3
+
+[profile.release.package.ultrahonk_soroban_verifier]
+opt-level = 3
+
+[profile.release.package.ark-ff]
+opt-level = 3
+
+[profile.release.package.ark-bn254]
+opt-level = 3

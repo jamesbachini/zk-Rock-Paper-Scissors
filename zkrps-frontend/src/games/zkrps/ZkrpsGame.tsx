@@ -379,7 +379,7 @@ export function ZkrpsGame({
       setLoading(true);
       const signer = getContractSigner();
       const salt = generateSalt();
-      const commitment = await computeCommitment(sessionId, selectedMove, salt);
+      const commitment = await computeCommitment(selectedMove, salt);
       const commitmentBytes = bigIntToBytes32(commitment);
 
       await zkrpsService.commitMove(sessionId, userAddress, commitmentBytes, signer);
@@ -445,11 +445,13 @@ export function ZkrpsGame({
       await new Promise((resolve) => setTimeout(resolve, 0));
       const signer = getContractSigner();
       const salt = BigInt(storedCommit.salt);
-      const proofData = await generateProof({
-        sessionId,
-        move: storedCommit.move,
-        salt,
-      }, setProofStage);
+      const proofData = await generateProof(
+        {
+          move: storedCommit.move,
+          salt,
+        },
+        setProofStage
+      );
 
       if (storedCommit.commitment && BigInt(storedCommit.commitment) !== proofData.commitment) {
         throw new Error('Stored commitment does not match generated proof.');

@@ -444,14 +444,13 @@ async function main() {
   await createTx.signAndSend();
 
   const bb = await BarretenbergSync.new();
-  const computeCommitment = (session, move, salt) => {
-    const inner = bb.poseidon2Hash([new Fr(BigInt(session)), new Fr(BigInt(move))]);
-    const commitment = bb.poseidon2Hash([inner, new Fr(salt)]);
+  const computeCommitment = (move, salt) => {
+    const commitment = bb.poseidon2Hash([new Fr(BigInt(move)), new Fr(salt)]);
     return BigInt(commitment.toString());
   };
 
-  const commitment1 = computeCommitment(sessionId, move1, salt1);
-  const commitment2 = computeCommitment(sessionId, move2, salt2);
+  const commitment1 = computeCommitment(move1, salt1);
+  const commitment2 = computeCommitment(move2, salt2);
 
   const commit1Tx = await player1Client.commit_move({
     session_id: sessionId,
@@ -489,7 +488,6 @@ async function main() {
     const { witness, returnValue } = await noir.execute({
       move,
       salt: salt.toString(),
-      session_id: sessionId.toString(),
     });
 
     const backend = new UltraHonkBackend(circuitJson.bytecode);
