@@ -3,17 +3,11 @@
  * Configuration loaded from environment variables
  */
 
-import { getRuntimeConfig } from './runtimeConfig';
-
-const runtimeConfig = getRuntimeConfig();
-
 export const SOROBAN_RPC_URL =
-  runtimeConfig?.rpcUrl || import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
+  import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
 export const RPC_URL = SOROBAN_RPC_URL; // Alias for compatibility
 export const NETWORK_PASSPHRASE =
-  runtimeConfig?.networkPassphrase ||
-  import.meta.env.VITE_NETWORK_PASSPHRASE ||
-  'Test SDF Network ; September 2015';
+  import.meta.env.VITE_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015';
 export const NETWORK = SOROBAN_RPC_URL.includes('testnet') ? 'testnet' : 'mainnet';
 
 function contractEnvKey(crateName: string): string {
@@ -23,8 +17,6 @@ function contractEnvKey(crateName: string): string {
 }
 
 export function getContractId(crateName: string): string {
-  const runtimeId = runtimeConfig?.contractIds?.[crateName];
-  if (runtimeId) return runtimeId;
   const env = import.meta.env as unknown as Record<string, string>;
   return env[contractEnvKey(crateName)] || '';
 }
@@ -32,13 +24,6 @@ export function getContractId(crateName: string): string {
 export function getAllContractIds(): Record<string, string> {
   const env = import.meta.env as unknown as Record<string, string>;
   const out: Record<string, string> = {};
-
-  if (runtimeConfig?.contractIds) {
-    for (const [key, value] of Object.entries(runtimeConfig.contractIds)) {
-      if (!value) continue;
-      out[key] = value;
-    }
-  }
 
   for (const [key, value] of Object.entries(env)) {
     if (!key.startsWith('VITE_') || !key.endsWith('_CONTRACT_ID')) continue;
@@ -66,8 +51,7 @@ export const DEV_PLAYER1_ADDRESS = import.meta.env.VITE_DEV_PLAYER1_ADDRESS || '
 export const DEV_PLAYER2_ADDRESS = import.meta.env.VITE_DEV_PLAYER2_ADDRESS || '';
 
 // Runtime-configurable simulation source (for standalone builds)
-export const RUNTIME_SIMULATION_SOURCE =
-  runtimeConfig?.simulationSourceAddress || import.meta.env.VITE_SIMULATION_SOURCE_ADDRESS || '';
+export const RUNTIME_SIMULATION_SOURCE = import.meta.env.VITE_SIMULATION_SOURCE_ADDRESS || '';
 
 // Transaction options
 export const DEFAULT_METHOD_OPTIONS = {
