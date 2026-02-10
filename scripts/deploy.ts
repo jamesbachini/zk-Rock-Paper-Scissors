@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 
 /**
- * Deploy script for Soroban contracts to testnet
+ * Deploy script for Soroban contracts.
  *
- * Deploys Soroban contracts to testnet
- * Returns the deployed contract IDs
+ * Deploys selected contracts to a chosen Stellar network and writes
+ * deployment metadata to deployment.json and .env.
  */
 
 import { $ } from "bun";
@@ -43,25 +43,154 @@ async function loadKeypairFactory(): Promise<StellarKeypairFactory> {
   }
 }
 
+type NetworkName = "testnet" | "futurenet" | "mainnet";
+
+type NetworkPreset = {
+  rpcUrl: string;
+  networkPassphrase: string;
+  horizonUrl: string;
+  friendbotUrl: string | null;
+  existingGameHubId: string;
+};
+
+const NETWORK_PRESETS: Record<NetworkName, NetworkPreset> = {
+  testnet: {
+    rpcUrl: "https://soroban-testnet.stellar.org",
+    networkPassphrase: "Test SDF Network ; September 2015",
+    horizonUrl: "https://horizon-testnet.stellar.org",
+    friendbotUrl: "https://friendbot.stellar.org",
+    existingGameHubId: "CB4VZAT2U3UC6XFK3N23SKRF2NDCMP3QHJYMCHHFMZO7MRQO6DQ2EMYG",
+  },
+  futurenet: {
+    rpcUrl: "https://rpc-futurenet.stellar.org",
+    networkPassphrase: "Test SDF Future Network ; October 2022",
+    horizonUrl: "https://horizon-futurenet.stellar.org",
+    friendbotUrl: "https://friendbot-futurenet.stellar.org",
+    existingGameHubId: "",
+  },
+  mainnet: {
+    rpcUrl: "https://mainnet.sorobanrpc.com",
+    networkPassphrase: "Public Global Stellar Network ; September 2015",
+    horizonUrl: "https://horizon.stellar.org",
+    friendbotUrl: null,
+    existingGameHubId: "",
+  },
+};
+
 function usage() {
   console.log(`
-Usage: bun run deploy [--force] [contract-name...]
+Usage: bun run deploy [options] [contract-name...]
+
+Options:
+  --force                            Force redeploy selected contracts
+  --network <testnet|futurenet|mainnet> (default: futurenet)
+  --rpc-url <url>                    Override RPC URL
+  --network-passphrase <passphrase>  Override network passphrase
+  --horizon-url <url>                Override Horizon URL used for account checks
+  --friendbot-url <url>              Override Friendbot URL
+  --existing-game-hub <contract-id>  Prefer this Game Hub contract ID
 
 Examples:
   bun run deploy
+  bun run deploy --network futurenet
+  bun run deploy --network futurenet --rpc-url https://rpc-futurenet.stellar.org
   bun run deploy number-guess
   bun run deploy twenty-one number-guess
-  bun run deploy --force rps_game ultrahonk_soroban_contract
+  bun run deploy --network futurenet --force rps_game ultrahonk_soroban_contract
 `);
 }
 
-console.log("🚀 Deploying contracts to Stellar testnet...\n");
+function readFlagValue(rawArgs: string[], index: number, flag: string): string {
+  const value = rawArgs[index + 1];
+  if (!value || value.startsWith("-")) {
+    console.error(`❌ Missing value for ${flag}`);
+    usage();
+    process.exit(1);
+  }
+  return value;
+}
+
+function isNetworkName(value: string): value is NetworkName {
+  return value === "testnet" || value === "futurenet" || value === "mainnet";
+}
+
+const rawArgs = process.argv.slice(2);
+if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
+  usage();
+  process.exit(0);
+}
+
+let forceRedeploy = false;
+let networkName: NetworkName = "futurenet";
+let rpcUrlOverride: string | null = null;
+let networkPassphraseOverride: string | null = null;
+let horizonUrlOverride: string | null = null;
+let friendbotUrlOverride: string | null = null;
+let existingGameHubOverride: string | null = null;
+const args: string[] = [];
+
+for (let i = 0; i < rawArgs.length; i++) {
+  const arg = rawArgs[i];
+  switch (arg) {
+    case "--force":
+      forceRedeploy = true;
+      break;
+    case "--network":
+    case "-n": {
+      const value = readFlagValue(rawArgs, i, arg);
+      if (!isNetworkName(value)) {
+        console.error(`❌ Unsupported network: ${value}`);
+        usage();
+        process.exit(1);
+      }
+      networkName = value;
+      i++;
+      break;
+    }
+    case "--rpc-url":
+      rpcUrlOverride = readFlagValue(rawArgs, i, arg);
+      i++;
+      break;
+    case "--network-passphrase":
+      networkPassphraseOverride = readFlagValue(rawArgs, i, arg);
+      i++;
+      break;
+    case "--horizon-url":
+      horizonUrlOverride = readFlagValue(rawArgs, i, arg);
+      i++;
+      break;
+    case "--friendbot-url":
+      friendbotUrlOverride = readFlagValue(rawArgs, i, arg);
+      i++;
+      break;
+    case "--existing-game-hub":
+      existingGameHubOverride = readFlagValue(rawArgs, i, arg);
+      i++;
+      break;
+    default:
+      args.push(arg);
+      break;
+  }
+}
+
+const preset = NETWORK_PRESETS[networkName];
+const NETWORK = networkName;
+const RPC_URL = rpcUrlOverride ?? preset.rpcUrl;
+const NETWORK_PASSPHRASE = networkPassphraseOverride ?? preset.networkPassphrase;
+const HORIZON_URL = horizonUrlOverride ?? preset.horizonUrl;
+const FRIEND_BOT_URL = friendbotUrlOverride === ""
+  ? null
+  : friendbotUrlOverride ?? preset.friendbotUrl;
+const EXISTING_GAME_HUB_CONTRACT_ID = existingGameHubOverride ?? preset.existingGameHubId;
+
+console.log(`🚀 Deploying contracts to Stellar ${NETWORK}...\n`);
+console.log(`RPC: ${RPC_URL}`);
+console.log(`Passphrase: ${NETWORK_PASSPHRASE}`);
+console.log(`Horizon: ${HORIZON_URL}`);
+console.log(`Friendbot: ${FRIEND_BOT_URL ?? "disabled"}\n`);
+
 const Keypair = await loadKeypairFactory();
 
-const NETWORK = 'testnet';
-const RPC_URL = 'https://soroban-testnet.stellar.org';
-const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
-const EXISTING_GAME_HUB_TESTNET_CONTRACT_ID = 'CB4VZAT2U3UC6XFK3N23SKRF2NDCMP3QHJYMCHHFMZO7MRQO6DQ2EMYG';
 const VERIFIER_PACKAGE = 'ultrahonk_soroban_contract';
 const RPS_GAME_PACKAGE = 'rps_game';
 const VK_PATH = 'circuits/rps_commit/artifacts/vk.bin';
@@ -84,31 +213,42 @@ function extractContractId(output: string): string {
   return match[0];
 }
 
-async function testnetAccountExists(address: string): Promise<boolean> {
-  const res = await fetch(`https://horizon-testnet.stellar.org/accounts/${address}`, { method: 'GET' });
+function buildFriendbotUrl(address: string): string {
+  if (!FRIEND_BOT_URL) {
+    throw new Error("Friendbot is not configured for this network");
+  }
+  const separator = FRIEND_BOT_URL.includes("?") ? "&" : "?";
+  return `${FRIEND_BOT_URL}${separator}addr=${encodeURIComponent(address)}`;
+}
+
+async function accountExists(address: string): Promise<boolean> {
+  const res = await fetch(`${HORIZON_URL}/accounts/${address}`, { method: 'GET' });
   if (res.status === 404) return false;
   if (!res.ok) throw new Error(`Horizon error ${res.status} checking ${address}`);
   return true;
 }
 
-async function ensureTestnetFunded(address: string): Promise<void> {
-  if (await testnetAccountExists(address)) return;
+async function ensureAccountFunded(address: string): Promise<void> {
+  if (await accountExists(address)) return;
+  if (!FRIEND_BOT_URL) {
+    throw new Error(`Account ${address} does not exist and friendbot is disabled`);
+  }
   console.log(`💰 Funding ${address} via friendbot...`);
-  const fundRes = await fetch(`https://friendbot.stellar.org?addr=${address}`, { method: 'GET' });
+  const fundRes = await fetch(buildFriendbotUrl(address), { method: 'GET' });
   if (!fundRes.ok) {
     throw new Error(`Friendbot funding failed (${fundRes.status}) for ${address}`);
   }
   for (let attempt = 0; attempt < 5; attempt++) {
     await new Promise((r) => setTimeout(r, 750));
-    if (await testnetAccountExists(address)) return;
+    if (await accountExists(address)) return;
   }
   throw new Error(`Funded ${address} but it still doesn't appear on Horizon yet`);
 }
 
-async function testnetContractExists(contractId: string): Promise<boolean> {
+async function contractExists(contractId: string): Promise<boolean> {
   const tmpPath = join(tmpdir(), `stellar-contract-${contractId}.wasm`);
   try {
-    await $`stellar -q contract fetch --id ${contractId} --network ${NETWORK} --out-file ${tmpPath}`;
+    await $`stellar -q contract fetch --id ${contractId} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --out-file ${tmpPath}`;
     return true;
   } catch {
     return false;
@@ -120,14 +260,6 @@ async function testnetContractExists(contractId: string): Promise<boolean> {
     }
   }
 }
-
-const rawArgs = process.argv.slice(2);
-if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
-  usage();
-  process.exit(0);
-}
-const forceRedeploy = rawArgs.includes("--force");
-const args = rawArgs.filter((arg) => arg !== "--force");
 
 const allContracts = await getWorkspaceContracts();
 const selection = selectContracts(allContracts, args);
@@ -177,7 +309,7 @@ if (missingWasm.length > 0) {
   process.exit(1);
 }
 
-// Create three testnet identities: admin, player1, player2
+// Create three network identities: admin, player1, player2
 // Admin signs deployments directly via secret key (no CLI identity required).
 // Player1 and player2 are keypairs for frontend dev use.
 const walletAddresses: Record<string, string> = {};
@@ -190,6 +322,11 @@ let existingSecrets: Record<string, string | null> = {
 };
 
 const existingEnv = await readEnvFile('.env');
+const envNetworkPassphrase = getEnvValue(existingEnv, "VITE_NETWORK_PASSPHRASE");
+const envMatchesNetwork = !!envNetworkPassphrase && envNetworkPassphrase === NETWORK_PASSPHRASE;
+if (!envMatchesNetwork && envNetworkPassphrase) {
+  console.log("ℹ️  .env is for a different network; ignoring previous contract IDs from .env.");
+}
 for (const identity of ['player1', 'player2']) {
   const key = `VITE_DEV_${identity.toUpperCase()}_SECRET`;
   const v = getEnvValue(existingEnv, key);
@@ -199,16 +336,26 @@ for (const identity of ['player1', 'player2']) {
 // Load existing deployment info so partial deploys can preserve other IDs.
 const existingContractIds: Record<string, string> = {};
 let existingDeployment: any = null;
+let existingDeploymentMatchesNetwork = false;
 if (existsSync("deployment.json")) {
   try {
     existingDeployment = await Bun.file("deployment.json").json();
-    if (existingDeployment?.contracts && typeof existingDeployment.contracts === "object") {
-      Object.assign(existingContractIds, existingDeployment.contracts);
+    const deploymentMatchesNetwork =
+      existingDeployment?.network === NETWORK
+      && existingDeployment?.networkPassphrase === NETWORK_PASSPHRASE;
+    existingDeploymentMatchesNetwork = deploymentMatchesNetwork;
+
+    if (deploymentMatchesNetwork) {
+      if (existingDeployment?.contracts && typeof existingDeployment.contracts === "object") {
+        Object.assign(existingContractIds, existingDeployment.contracts);
+      } else {
+        // Backwards compatible fallback
+        if (existingDeployment?.mockGameHubId) existingContractIds["mock-game-hub"] = existingDeployment.mockGameHubId;
+        if (existingDeployment?.twentyOneId) existingContractIds["twenty-one"] = existingDeployment.twentyOneId;
+        if (existingDeployment?.numberGuessId) existingContractIds["number-guess"] = existingDeployment.numberGuessId;
+      }
     } else {
-      // Backwards compatible fallback
-      if (existingDeployment?.mockGameHubId) existingContractIds["mock-game-hub"] = existingDeployment.mockGameHubId;
-      if (existingDeployment?.twentyOneId) existingContractIds["twenty-one"] = existingDeployment.twentyOneId;
-      if (existingDeployment?.numberGuessId) existingContractIds["number-guess"] = existingDeployment.numberGuessId;
+      console.log("ℹ️  deployment.json is for a different network; ignoring previous contract IDs.");
     }
   } catch (error) {
     console.warn("⚠️  Warning: Failed to parse deployment.json, continuing...");
@@ -217,6 +364,7 @@ if (existsSync("deployment.json")) {
 
 for (const contract of allContracts) {
   if (existingContractIds[contract.packageName]) continue;
+  if (!envMatchesNetwork) continue;
   const envId = getEnvValue(existingEnv, `VITE_${contract.envKey}_CONTRACT_ID`);
   if (envId) existingContractIds[contract.packageName] = envId;
 }
@@ -229,7 +377,7 @@ const adminKeypair = Keypair.random();
 walletAddresses.admin = adminKeypair.publicKey();
 
 try {
-  await ensureTestnetFunded(walletAddresses.admin);
+  await ensureAccountFunded(walletAddresses.admin);
   console.log('✅ admin funded');
 } catch (error) {
   console.error('❌ Failed to ensure admin is funded. Deployment cannot proceed.');
@@ -240,7 +388,7 @@ try {
 for (const identity of ['player1', 'player2']) {
   console.log(`Setting up ${identity}...`);
 
-  let keypair: Keypair;
+  let keypair: StellarKeypair;
   if (existingSecrets[identity]) {
     console.log(`✅ Using existing ${identity} from .env`);
     keypair = Keypair.fromSecret(existingSecrets[identity]!);
@@ -253,9 +401,9 @@ for (const identity of ['player1', 'player2']) {
   walletSecrets[identity] = keypair.secret();
   console.log(`✅ ${identity}: ${keypair.publicKey()}`);
 
-  // Ensure player accounts exist on testnet (even if reusing keys from .env)
+  // Ensure player accounts exist on the target network (even if reusing keys from .env)
   try {
-    await ensureTestnetFunded(keypair.publicKey());
+    await ensureAccountFunded(keypair.publicKey());
     console.log(`✅ ${identity} funded\n`);
   } catch (error) {
     console.warn(`⚠️  Warning: Failed to ensure ${identity} is funded, continuing anyway...`);
@@ -282,12 +430,12 @@ if (shouldEnsureMock) {
   if (!forceMockRedeploy) {
     const candidateMockIds = [
       existingContractIds[mock.packageName],
-      existingDeployment?.mockGameHubId,
-      EXISTING_GAME_HUB_TESTNET_CONTRACT_ID,
+      existingDeploymentMatchesNetwork ? existingDeployment?.mockGameHubId : undefined,
+      EXISTING_GAME_HUB_CONTRACT_ID,
     ].filter(Boolean) as string[];
 
     for (const candidate of candidateMockIds) {
-      if (await testnetContractExists(candidate)) {
+      if (await contractExists(candidate)) {
         mockGameHubId = candidate;
         break;
       }
@@ -296,7 +444,7 @@ if (shouldEnsureMock) {
 
   if (mockGameHubId && !forceMockRedeploy) {
     deployed[mock.packageName] = mockGameHubId;
-    console.log(`✅ Using existing ${mock.packageName} on testnet: ${mockGameHubId}\n`);
+    console.log(`✅ Using existing ${mock.packageName} on ${NETWORK}: ${mockGameHubId}\n`);
   } else {
     if (!await Bun.file(mock.wasmPath).exists()) {
       console.error("❌ Error: Missing WASM build output for mock-game-hub:");
@@ -308,12 +456,12 @@ if (shouldEnsureMock) {
     if (forceMockRedeploy) {
       console.warn(`⚠️  --force enabled. Redeploying ${mock.packageName}...`);
     } else {
-      console.warn(`⚠️  ${mock.packageName} not found on testnet (archived or reset). Deploying a new one...`);
+      console.warn(`⚠️  ${mock.packageName} not found on ${NETWORK} (archived or reset). Deploying a new one...`);
     }
     console.log(`Deploying ${mock.packageName}...`);
     try {
       const result =
-        await $`stellar contract deploy --wasm ${mock.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+        await $`stellar contract deploy --wasm ${mock.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE}`.text();
       mockGameHubId = extractContractId(result);
       deployed[mock.packageName] = mockGameHubId;
       console.log(`✅ ${mock.packageName} deployed: ${mockGameHubId}\n`);
@@ -327,7 +475,7 @@ if (shouldEnsureMock) {
 async function verifierSupportsPoseidon2(contractId: string): Promise<boolean> {
   const tmpBindingsDir = await mkdtemp(join(tmpdir(), "verifier-bindings-"));
   try {
-    await $`stellar contract bindings typescript --network ${NETWORK} --contract-id ${contractId} --output-dir ${tmpBindingsDir} --overwrite`.text();
+    await $`stellar contract bindings typescript --contract-id ${contractId} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --output-dir ${tmpBindingsDir} --overwrite`.text();
     const bindingsPath = join(tmpBindingsDir, "src", "index.ts");
     if (!existsSync(bindingsPath)) {
       return false;
@@ -347,11 +495,11 @@ if (wantsVerifier || wantsRpsGame) {
   if (!forceVerifierRedeploy) {
     const candidateVerifierIds = [
       existingContractIds[VERIFIER_PACKAGE],
-      existingDeployment?.contracts?.[VERIFIER_PACKAGE],
+      existingDeploymentMatchesNetwork ? existingDeployment?.contracts?.[VERIFIER_PACKAGE] : undefined,
     ].filter(Boolean) as string[];
 
     for (const candidate of candidateVerifierIds) {
-      if (await testnetContractExists(candidate)) {
+      if (await contractExists(candidate)) {
         if (!await verifierSupportsPoseidon2(candidate)) {
           console.warn(
             `⚠️  Existing verifier ${candidate} does not expose verify_proof_poseidon2. Will redeploy verifier.\n`
@@ -366,7 +514,7 @@ if (wantsVerifier || wantsRpsGame) {
 
   if (verifierContractId && !forceVerifierRedeploy) {
     deployed[VERIFIER_PACKAGE] = verifierContractId;
-    console.log(`✅ Using existing ${VERIFIER_PACKAGE} on testnet: ${verifierContractId}\n`);
+    console.log(`✅ Using existing ${VERIFIER_PACKAGE} on ${NETWORK}: ${verifierContractId}\n`);
   } else {
     const verifierInfo = allContracts.find((c) => c.packageName === VERIFIER_PACKAGE);
     if (!verifierInfo) {
@@ -396,13 +544,13 @@ if (wantsVerifier || wantsRpsGame) {
     try {
       console.log("  Uploading WASM...");
       const uploadResult =
-        await $`stellar contract upload --wasm ${verifierInfo.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+        await $`stellar contract upload --wasm ${verifierInfo.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE}`.text();
       const wasmHash = extractWasmHash(uploadResult);
       console.log(`  WASM hash: ${wasmHash}`);
 
       console.log("  Deploying and initializing...");
       const deployResult =
-        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK} -- --vk_bytes-file-path ${VK_PATH}`.text();
+        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} -- --vk_bytes-file-path ${VK_PATH}`.text();
       verifierContractId = extractContractId(deployResult);
       deployed[VERIFIER_PACKAGE] = verifierContractId;
       console.log(`✅ ${VERIFIER_PACKAGE} deployed: ${verifierContractId}\n`);
@@ -421,14 +569,14 @@ for (const contract of contracts) {
   try {
     console.log("  Uploading WASM...");
     const uploadResult =
-      await $`stellar contract upload --wasm ${contract.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+      await $`stellar contract upload --wasm ${contract.wasmPath} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE}`.text();
     const wasmHash = extractWasmHash(uploadResult);
     console.log(`  WASM hash: ${wasmHash}`);
 
     if (contract.packageName === RPS_GAME_PACKAGE) {
       console.log("  Deploying (no constructor)...");
       const deployResult =
-        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK}`.text();
+        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE}`.text();
       const contractId = extractContractId(deployResult);
       deployed[contract.packageName] = contractId;
       console.log(`✅ ${contract.packageName} deployed: ${contractId}\n`);
@@ -440,7 +588,7 @@ for (const contract of contracts) {
 
       console.log("  Initializing rps_game...");
       try {
-        await $`stellar contract invoke --id ${contractId} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK} -- init --game_hub ${mockGameHubId} --verifier ${verifierContractId} --commit_window ${COMMIT_WINDOW} --reveal_window ${REVEAL_WINDOW}`;
+        await $`stellar contract invoke --id ${contractId} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} -- init --game_hub ${mockGameHubId} --verifier ${verifierContractId} --commit_window ${COMMIT_WINDOW} --reveal_window ${REVEAL_WINDOW}`;
       } catch (error) {
         const message = String(error);
         if (!message.includes("AlreadyInitialized") && !message.includes("Error(Contract, #1)")) {
@@ -451,7 +599,7 @@ for (const contract of contracts) {
     } else {
       console.log("  Deploying and initializing...");
       const deployResult =
-        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} --network ${NETWORK} -- --admin ${adminAddress} --game-hub ${mockGameHubId}`.text();
+        await $`stellar contract deploy --wasm-hash ${wasmHash} --source-account ${adminSecret} --rpc-url ${RPC_URL} --network-passphrase ${NETWORK_PASSPHRASE} -- --admin ${adminAddress} --game-hub ${mockGameHubId}`.text();
       const contractId = extractContractId(deployResult);
       deployed[contract.packageName] = contractId;
       console.log(`✅ ${contract.packageName} deployed: ${contractId}\n`);
@@ -488,6 +636,8 @@ const deploymentInfo = {
   contracts: deploymentContracts,
   network: NETWORK,
   rpcUrl: RPC_URL,
+  horizonUrl: HORIZON_URL,
+  friendbotUrl: FRIEND_BOT_URL,
   networkPassphrase: NETWORK_PASSPHRASE,
   wallets: {
     admin: walletAddresses.admin,
@@ -509,6 +659,8 @@ const envContent = `# Auto-generated by deploy script
 # WARNING: This file contains secret keys. Never commit to git!
 
 VITE_SOROBAN_RPC_URL=${RPC_URL}
+VITE_HORIZON_URL=${HORIZON_URL}
+VITE_FRIENDBOT_URL=${FRIEND_BOT_URL ?? ""}
 VITE_NETWORK_PASSPHRASE=${NETWORK_PASSPHRASE}
 ${contractEnvLines}
 

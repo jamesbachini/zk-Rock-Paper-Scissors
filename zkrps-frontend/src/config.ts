@@ -6,8 +6,8 @@
 import { getAllContractIds, getContractId } from './utils/constants';
 
 export const config = {
-  rpcUrl: import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org',
-  networkPassphrase: import.meta.env.VITE_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015',
+  rpcUrl: import.meta.env.VITE_SOROBAN_RPC_URL || 'https://rpc-futurenet.stellar.org',
+  networkPassphrase: import.meta.env.VITE_NETWORK_PASSPHRASE || 'Test SDF Future Network ; October 2022',
   contractIds: getAllContractIds(),
 
   // Backwards-compatible aliases for built-in games

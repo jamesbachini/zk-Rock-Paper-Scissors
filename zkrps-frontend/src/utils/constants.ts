@@ -3,12 +3,54 @@
  * Configuration loaded from environment variables
  */
 
-export const SOROBAN_RPC_URL =
-  import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
-export const RPC_URL = SOROBAN_RPC_URL; // Alias for compatibility
+export type StellarNetwork = 'testnet' | 'futurenet' | 'mainnet' | 'custom';
+
+export const TESTNET_PASSPHRASE = 'Test SDF Network ; September 2015';
+export const FUTURENET_PASSPHRASE = 'Test SDF Future Network ; October 2022';
+export const MAINNET_PASSPHRASE = 'Public Global Stellar Network ; September 2015';
+
 export const NETWORK_PASSPHRASE =
-  import.meta.env.VITE_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015';
-export const NETWORK = SOROBAN_RPC_URL.includes('testnet') ? 'testnet' : 'mainnet';
+  import.meta.env.VITE_NETWORK_PASSPHRASE || FUTURENET_PASSPHRASE;
+
+function resolveNetwork(passphrase: string): StellarNetwork {
+  if (passphrase === TESTNET_PASSPHRASE) return 'testnet';
+  if (passphrase === FUTURENET_PASSPHRASE) return 'futurenet';
+  if (passphrase === MAINNET_PASSPHRASE) return 'mainnet';
+  return 'custom';
+}
+
+export const NETWORK = resolveNetwork(NETWORK_PASSPHRASE);
+
+const DEFAULT_RPC_URL_BY_NETWORK: Record<Exclude<StellarNetwork, 'custom'>, string> = {
+  testnet: 'https://soroban-testnet.stellar.org',
+  futurenet: 'https://rpc-futurenet.stellar.org',
+  mainnet: 'https://mainnet.sorobanrpc.com',
+};
+
+const defaultRpcUrl = NETWORK === 'custom'
+  ? DEFAULT_RPC_URL_BY_NETWORK.futurenet
+  : DEFAULT_RPC_URL_BY_NETWORK[NETWORK];
+
+export const SOROBAN_RPC_URL =
+  import.meta.env.VITE_SOROBAN_RPC_URL || defaultRpcUrl;
+export const RPC_URL = SOROBAN_RPC_URL; // Alias for compatibility
+
+const DEFAULT_HORIZON_URL_BY_NETWORK: Partial<Record<StellarNetwork, string>> = {
+  testnet: 'https://horizon-testnet.stellar.org',
+  futurenet: 'https://horizon-futurenet.stellar.org',
+  mainnet: 'https://horizon.stellar.org',
+};
+
+const DEFAULT_FRIENDBOT_URL_BY_NETWORK: Partial<Record<StellarNetwork, string>> = {
+  testnet: 'https://friendbot.stellar.org',
+  futurenet: 'https://friendbot-futurenet.stellar.org',
+};
+
+export const HORIZON_URL =
+  import.meta.env.VITE_HORIZON_URL || DEFAULT_HORIZON_URL_BY_NETWORK[NETWORK] || '';
+export const FRIEND_BOT_URL =
+  import.meta.env.VITE_FRIENDBOT_URL || DEFAULT_FRIENDBOT_URL_BY_NETWORK[NETWORK] || '';
+export const FRIEND_BOT_AVAILABLE = FRIEND_BOT_URL.length > 0;
 
 function contractEnvKey(crateName: string): string {
   // Crate name -> env key matches scripts/utils/contracts.ts: hyphens become underscores.

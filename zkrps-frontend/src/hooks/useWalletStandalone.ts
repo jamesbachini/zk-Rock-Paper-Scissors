@@ -20,7 +20,9 @@ function resolveNetwork(passphrase?: string): Networks {
     return passphrase as Networks;
   }
 
-  return NETWORK === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET;
+  if (NETWORK === 'mainnet') return Networks.PUBLIC;
+  if (NETWORK === 'futurenet') return Networks.FUTURENET;
+  return Networks.TESTNET;
 }
 
 function ensureKitInitialized(passphrase?: string) {

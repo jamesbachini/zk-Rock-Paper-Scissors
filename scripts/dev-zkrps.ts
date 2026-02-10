@@ -5,7 +5,7 @@
  *
  * This script:
  * 1) Builds required contracts (mock-game-hub, verifier, rps_game)
- * 2) Force redeploys those contracts to testnet
+ * 2) Force redeploys those contracts to selected network
  * 3) Regenerates rps_game bindings and syncs frontend bindings
  * 4) Starts zkrps-frontend with the freshly written root .env
  */
@@ -16,7 +16,7 @@ import { readEnvFile, getEnvValue } from "./utils/env";
 
 function usage() {
   console.log(`
-Usage: bun run dev:zkrps
+Usage: bun run dev:zkrps [deploy-options]
 
 This command force redeploys:
   - mock-game-hub
@@ -25,6 +25,9 @@ This command force redeploys:
 
 Then it starts:
   - zkrps-frontend
+
+Example:
+  bun run dev:zkrps --network futurenet
 `);
 }
 
@@ -33,6 +36,9 @@ if (args.includes("--help") || args.includes("-h")) {
   usage();
   process.exit(0);
 }
+
+const deployArgs = ["--force", ...args, "mock-game-hub", "ultrahonk_soroban_contract", "rps_game"];
+const bindingsArgs = [...args, "rps_game"];
 
 const frontendDir = "zkrps-frontend";
 if (!existsSync(frontendDir)) {
@@ -60,12 +66,12 @@ await $`bun run build mock-game-hub ultrahonk_soroban_contract rps_game`;
 console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 console.log("Step 2/4: Force redeploy contracts");
 console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-await $`bun run deploy --force mock-game-hub ultrahonk_soroban_contract rps_game`;
+await $`bun run deploy ${deployArgs}`;
 
 console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 console.log("Step 3/4: Refresh rps_game bindings");
 console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-await $`bun run bindings rps_game`;
+await $`bun run bindings ${bindingsArgs}`;
 const generatedBindings = "bindings/rps_game/src/index.ts";
 const frontendBindings = `${frontendDir}/src/games/zkrps/bindings.ts`;
 if (!existsSync(generatedBindings)) {

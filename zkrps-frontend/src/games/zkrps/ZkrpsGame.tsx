@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { rpc, StrKey } from '@stellar/stellar-sdk';
 import { ZkrpsService } from './zkrpsService';
 import { useWallet } from '@/hooks/useWallet';
-import { RPS_GAME_CONTRACT, RPC_URL, NETWORK } from '@/utils/constants';
+import { FRIEND_BOT_AVAILABLE, FRIEND_BOT_URL, RPS_GAME_CONTRACT, RPC_URL } from '@/utils/constants';
 import { devWalletService, DevWalletService } from '@/services/devWalletService';
 import type { SessionData } from './bindings';
 import {
@@ -501,14 +501,15 @@ export function ZkrpsGame({
   const handleFriendbot = async () => {
     resetMessages();
 
-    if (NETWORK !== 'testnet') {
-      setError('Friendbot is only available on testnet.');
+    if (!FRIEND_BOT_AVAILABLE || !FRIEND_BOT_URL) {
+      setError('Friendbot is not configured for this network.');
       return;
     }
 
     try {
       setFunding(true);
-      const res = await fetch(`https://friendbot.stellar.org?addr=${userAddress}`);
+      const separator = FRIEND_BOT_URL.includes('?') ? '&' : '?';
+      const res = await fetch(`${FRIEND_BOT_URL}${separator}addr=${encodeURIComponent(userAddress)}`);
       if (!res.ok) {
         throw new Error(`Friendbot failed with status ${res.status}`);
       }
@@ -742,7 +743,7 @@ export function ZkrpsGame({
           )}
         </div>
 
-        {NETWORK === 'testnet' && (
+        {FRIEND_BOT_AVAILABLE && (
           <button
             className="btn-secondary"
             type="button"

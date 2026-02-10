@@ -1,5 +1,10 @@
 # Not working due to issues with TX limits
 
+Reveal failed: Error: HostError: Error(Budget, ExceededLimit)
+DebugInfo not available
+
+Running on futurenet.
+
 ## Do not use/fork
 
 Development Tools For Web3 Game Builders On Stellar.

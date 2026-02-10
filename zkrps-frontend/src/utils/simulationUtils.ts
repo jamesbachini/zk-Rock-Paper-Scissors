@@ -1,27 +1,29 @@
 import { StrKey } from '@stellar/stellar-sdk';
-import { DEV_ADMIN_ADDRESS, DEV_PLAYER1_ADDRESS, DEV_PLAYER2_ADDRESS, NETWORK, RUNTIME_SIMULATION_SOURCE } from '@/utils/constants';
+import {
+  DEV_ADMIN_ADDRESS,
+  DEV_PLAYER1_ADDRESS,
+  DEV_PLAYER2_ADDRESS,
+  FRIEND_BOT_URL,
+  HORIZON_URL,
+  RUNTIME_SIMULATION_SOURCE,
+} from '@/utils/constants';
 
 async function horizonAccountExists(address: string): Promise<boolean> {
-  const horizonUrl =
-    NETWORK === 'testnet'
-      ? 'https://horizon-testnet.stellar.org'
-      : NETWORK === 'mainnet'
-      ? 'https://horizon.stellar.org'
-      : null;
+  if (!HORIZON_URL) return true;
 
-  if (!horizonUrl) return true;
-
-  const res = await fetch(`${horizonUrl}/accounts/${address}`, { method: 'GET' });
+  const res = await fetch(`${HORIZON_URL}/accounts/${address}`, { method: 'GET' });
   if (res.status === 404) return false;
   if (!res.ok) throw new Error(`Horizon error ${res.status} checking account existence`);
   return true;
 }
 
-async function ensureTestnetAccountFunded(address: string): Promise<void> {
-  if (NETWORK !== 'testnet') return;
+async function ensureNetworkAccountFunded(address: string): Promise<void> {
+  if (!FRIEND_BOT_URL) return;
   if (await horizonAccountExists(address)) return;
 
-  const fundRes = await fetch(`https://friendbot.stellar.org?addr=${address}`, { method: 'GET' });
+  const separator = FRIEND_BOT_URL.includes('?') ? '&' : '?';
+  const friendbotUrl = `${FRIEND_BOT_URL}${separator}addr=${encodeURIComponent(address)}`;
+  const fundRes = await fetch(friendbotUrl, { method: 'GET' });
   if (!fundRes.ok) {
     throw new Error(`Friendbot funding failed (${fundRes.status}) for ${address}`);
   }
@@ -57,6 +59,6 @@ export async function getSimulationSourceAddress(avoidAddresses: string[] = []):
 
 export async function getFundedSimulationSourceAddress(avoidAddresses: string[] = []): Promise<string> {
   const addr = await getSimulationSourceAddress(avoidAddresses);
-  await ensureTestnetAccountFunded(addr);
+  await ensureNetworkAccountFunded(addr);
   return addr;
 }
