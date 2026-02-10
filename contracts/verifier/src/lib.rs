@@ -53,7 +53,11 @@ impl UltraHonkVerifierContract {
     }
 
     /// Verify an Ultrahonk proof with the stored VK (Poseidon2 transcript).
-    pub fn verify_proof_poseidon2(env: Env, public_inputs: Bytes, proof_bytes: Bytes) -> Result<(), Error> {
+    pub fn verify_proof_poseidon2(
+        env: Env,
+        public_inputs: Bytes,
+        proof_bytes: Bytes,
+    ) -> Result<(), Error> {
         if proof_bytes.len() as usize != PROOF_BYTES {
             return Err(Error::ProofParseError);
         }
@@ -71,3 +75,6 @@ impl UltraHonkVerifierContract {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test;

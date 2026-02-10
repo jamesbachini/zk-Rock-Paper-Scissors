@@ -1,4 +1,4 @@
-use soroban_sdk::{Bytes, Symbol, U256, Vec};
+use soroban_sdk::{Bytes, Symbol, Vec, U256};
 
 /// Hash algorithm selection for Fiat-Shamir transcript
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14,7 +14,7 @@ pub fn hash32(data: &Bytes) -> [u8; 32] {
 }
 
 /// Compute Poseidon2 hash using the Soroban host function.
-/// Converts input bytes to field elements (32-byte chunks, reversed endianness).
+/// Interprets input as a concatenation of 32-byte big-endian field elements.
 pub fn hash32_poseidon2(data: &Bytes) -> [u8; 32] {
     let env = data.env();
     let mut inputs = Vec::new(&env);
@@ -22,21 +22,18 @@ pub fn hash32_poseidon2(data: &Bytes) -> [u8; 32] {
     let len = data.len();
     let mut idx = 0u32;
 
-    // Process input in 32-byte chunks
+    // Process input in 32-byte chunks (big-endian field encoding).
     while idx < len {
         let remaining = len - idx;
         let chunk_size = if remaining >= 32 { 32 } else { remaining };
 
         let mut buf = [0u8; 32];
-        // Copy chunk into buffer
+        // Copy chunk into buffer.
         for i in 0..chunk_size {
             buf[i as usize] = data.get_unchecked(idx + i);
         }
 
-        // Reverse the buffer for endianness conversion (per PR convention)
-        buf.reverse();
-
-        // Convert to U256 via Bytes
+        // Convert to U256 via Bytes.
         let chunk_bytes = Bytes::from_array(&env, &buf);
         let field_element = U256::from_be_bytes(&env, &chunk_bytes);
         inputs.push_back(field_element);

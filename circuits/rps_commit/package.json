@@ -7,6 +7,8 @@
     "artifacts": "node scripts/build-artifacts.mjs",
     "prove": "node prove.mjs",
     "prove:artifacts": "node scripts/build-proof-artifacts.mjs",
+    "artifacts:keccak": "node scripts/build-keccak-artifacts.mjs",
+    "trace:transcript": "node scripts/build-transcript-trace.mjs",
     "clean": "rm -rf target artifacts"
   },
   "dependencies": {

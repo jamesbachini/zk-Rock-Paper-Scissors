@@ -38,6 +38,24 @@ stellar contract deploy \
 This is the **primary verification path** and uses **Poseidon2** for the Fiat–Shamir transcript.
 Poseidon2 is more efficient on Stellar/Soroban than Keccak-256 and avoids budget limit issues.
 
+#### Poseidon2 Transcript Encoding (Exact)
+
+To match bb.js/Barretenberg UltraHonk transcript hashing:
+
+- The transcript hash input is treated as a sequence of **BN254 Fr elements**, not arbitrary bytes.
+- Each element is encoded as **32-byte big-endian**.
+- Soroban adapter maps each 32-byte chunk directly to `U256::from_be_bytes` (no byte reversal).
+- Hash call is `env.crypto().poseidon2_hash(&Vec<U256>, "BN254")`.
+- No extra domain labels are injected by the adapter.
+
+A deterministic parity fixture is generated from bb.js at:
+
+- `circuits/rps_commit/artifacts/transcript_poseidon2_trace.txt`
+
+and verified in Rust by:
+
+- `contracts/verifier/ultrahonk-soroban-verifier/tests/poseidon2_parity_test.rs`
+
 ### Legacy: Keccak Transcript
 
 `verify_proof(public_inputs: Bytes, proof_bytes: Bytes) -> Result<(), Error>`

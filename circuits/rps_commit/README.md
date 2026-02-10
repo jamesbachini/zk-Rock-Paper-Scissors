@@ -57,9 +57,11 @@ If you later include a player address in the commitment:
 
 ## Build & Prove
 
-**Important:** The Soroban verifier uses **Keccak** for the Fiat–Shamir
-transcript. Generate proofs (and VK) with `UltraHonkBackend` using
-`{ keccak: true }` so on-chain verification matches.
+**Default path:** Poseidon2 transcript (no `{ keccak: true }`) to match
+`verify_proof_poseidon2` on-chain.
+
+**Legacy path:** Keccak transcript is still supported for regression via
+`verify_proof` and `backend.generateProof(witness, { keccak: true })`.
 
 From `circuits/rps_commit`:
 
@@ -69,6 +71,8 @@ bun run compile
 bun run prove
 bun run artifacts
 bun run prove:artifacts
+bun run trace:transcript
+bun run artifacts:keccak
 ```
 
 - `bun run prove`:
@@ -80,6 +84,13 @@ bun run prove:artifacts
   - writes `artifacts/proof.bin` and `artifacts/public_inputs.bin`
   - uses the fixed inputs from this README (move=1, salt=123456789)
   - intended for on-chain and contract integration tests
+- `bun run trace:transcript`:
+  - writes `artifacts/transcript_poseidon2_trace.txt`
+  - records Poseidon2 transcript hash inputs/digests from bb.js for parity testing
+- `bun run artifacts:keccak`:
+  - writes `artifacts/vk_keccak.bin`, `artifacts/proof_keccak.bin`,
+    `artifacts/public_inputs_keccak.bin`
+  - used for legacy Keccak regression tests
 
 Tested with:
 - `@aztec/bb.js@0.87.0`

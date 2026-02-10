@@ -113,7 +113,7 @@ Then run E2E against local:
 
 ### Known Issues + Troubleshooting
 
-- **Proof verification failed:** ensure bb.js uses `{ keccak: true }` (the on-chain verifier uses Keccak for Fiat–Shamir).
+- **Proof verification failed:** for the primary path, do **not** pass `{ keccak: true }` (the on-chain primary verifier is Poseidon2 via `verify_proof_poseidon2`).
 - **Budget exceeded on testnet:** Ultrahonk verification can exceed current testnet limits. Use a local RPC with higher limits.
 - **Public inputs mismatch:** must be 64 bytes, two 32-byte big-endian field elements in order `[commitment, move_public]`.
 - **Commitment mismatch:** commitment must be `Poseidon2Hash(Poseidon2Hash(session_id, move), salt)`.
