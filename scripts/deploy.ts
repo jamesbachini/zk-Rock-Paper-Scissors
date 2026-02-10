@@ -9,7 +9,7 @@
 
 import { $ } from "bun";
 import { existsSync } from "node:fs";
-import { unlink } from "node:fs/promises";
+import { mkdtemp, rm, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readEnvFile, getEnvValue } from './utils/env';
@@ -45,12 +45,13 @@ async function loadKeypairFactory(): Promise<StellarKeypairFactory> {
 
 function usage() {
   console.log(`
-Usage: bun run deploy [contract-name...]
+Usage: bun run deploy [--force] [contract-name...]
 
 Examples:
   bun run deploy
   bun run deploy number-guess
   bun run deploy twenty-one number-guess
+  bun run deploy --force rps_game ultrahonk_soroban_contract
 `);
 }
 
@@ -120,11 +121,13 @@ async function testnetContractExists(contractId: string): Promise<boolean> {
   }
 }
 
-const args = process.argv.slice(2);
-if (args.includes("--help") || args.includes("-h")) {
+const rawArgs = process.argv.slice(2);
+if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
   usage();
   process.exit(0);
 }
+const forceRedeploy = rawArgs.includes("--force");
+const args = rawArgs.filter((arg) => arg !== "--force");
 
 const allContracts = await getWorkspaceContracts();
 const selection = selectContracts(allContracts, args);
@@ -147,6 +150,10 @@ if (selection.unknown.length > 0 || selection.ambiguous.length > 0) {
 const contracts = selection.contracts;
 const wantsVerifier = contracts.some((c) => c.packageName === VERIFIER_PACKAGE);
 const wantsRpsGame = contracts.some((c) => c.packageName === RPS_GAME_PACKAGE);
+const wantsMockHub = contracts.some((c) => c.isMockHub);
+const forceMockRedeploy = forceRedeploy && wantsMockHub;
+const forceVerifierRedeploy =
+  forceRedeploy && (wantsVerifier || wantsRpsGame);
 const mock = allContracts.find((c) => c.isMockHub);
 if (!mock) {
   console.error("❌ Error: mock-game-hub contract not found in workspace members");
@@ -272,20 +279,22 @@ const deployed: Record<string, string> = { ...existingContractIds };
 // Ensure mock Game Hub exists so we can pass it into game constructors.
 let mockGameHubId = existingContractIds[mock.packageName] || "";
 if (shouldEnsureMock) {
-  const candidateMockIds = [
-    existingContractIds[mock.packageName],
-    existingDeployment?.mockGameHubId,
-    EXISTING_GAME_HUB_TESTNET_CONTRACT_ID,
-  ].filter(Boolean) as string[];
+  if (!forceMockRedeploy) {
+    const candidateMockIds = [
+      existingContractIds[mock.packageName],
+      existingDeployment?.mockGameHubId,
+      EXISTING_GAME_HUB_TESTNET_CONTRACT_ID,
+    ].filter(Boolean) as string[];
 
-  for (const candidate of candidateMockIds) {
-    if (await testnetContractExists(candidate)) {
-      mockGameHubId = candidate;
-      break;
+    for (const candidate of candidateMockIds) {
+      if (await testnetContractExists(candidate)) {
+        mockGameHubId = candidate;
+        break;
+      }
     }
   }
 
-  if (mockGameHubId) {
+  if (mockGameHubId && !forceMockRedeploy) {
     deployed[mock.packageName] = mockGameHubId;
     console.log(`✅ Using existing ${mock.packageName} on testnet: ${mockGameHubId}\n`);
   } else {
@@ -296,7 +305,11 @@ if (shouldEnsureMock) {
       process.exit(1);
     }
 
-    console.warn(`⚠️  ${mock.packageName} not found on testnet (archived or reset). Deploying a new one...`);
+    if (forceMockRedeploy) {
+      console.warn(`⚠️  --force enabled. Redeploying ${mock.packageName}...`);
+    } else {
+      console.warn(`⚠️  ${mock.packageName} not found on testnet (archived or reset). Deploying a new one...`);
+    }
     console.log(`Deploying ${mock.packageName}...`);
     try {
       const result =
@@ -311,21 +324,47 @@ if (shouldEnsureMock) {
   }
 }
 
+async function verifierSupportsPoseidon2(contractId: string): Promise<boolean> {
+  const tmpBindingsDir = await mkdtemp(join(tmpdir(), "verifier-bindings-"));
+  try {
+    await $`stellar contract bindings typescript --network ${NETWORK} --contract-id ${contractId} --output-dir ${tmpBindingsDir} --overwrite`.text();
+    const bindingsPath = join(tmpBindingsDir, "src", "index.ts");
+    if (!existsSync(bindingsPath)) {
+      return false;
+    }
+
+    const bindingsSource = await Bun.file(bindingsPath).text();
+    return bindingsSource.includes("verify_proof_poseidon2");
+  } catch {
+    return false;
+  } finally {
+    await rm(tmpBindingsDir, { recursive: true, force: true });
+  }
+}
+
 let verifierContractId = existingContractIds[VERIFIER_PACKAGE] || "";
 if (wantsVerifier || wantsRpsGame) {
-  const candidateVerifierIds = [
-    existingContractIds[VERIFIER_PACKAGE],
-    existingDeployment?.contracts?.[VERIFIER_PACKAGE],
-  ].filter(Boolean) as string[];
+  if (!forceVerifierRedeploy) {
+    const candidateVerifierIds = [
+      existingContractIds[VERIFIER_PACKAGE],
+      existingDeployment?.contracts?.[VERIFIER_PACKAGE],
+    ].filter(Boolean) as string[];
 
-  for (const candidate of candidateVerifierIds) {
-    if (await testnetContractExists(candidate)) {
-      verifierContractId = candidate;
-      break;
+    for (const candidate of candidateVerifierIds) {
+      if (await testnetContractExists(candidate)) {
+        if (!await verifierSupportsPoseidon2(candidate)) {
+          console.warn(
+            `⚠️  Existing verifier ${candidate} does not expose verify_proof_poseidon2. Will redeploy verifier.\n`
+          );
+          continue;
+        }
+        verifierContractId = candidate;
+        break;
+      }
     }
   }
 
-  if (verifierContractId) {
+  if (verifierContractId && !forceVerifierRedeploy) {
     deployed[VERIFIER_PACKAGE] = verifierContractId;
     console.log(`✅ Using existing ${VERIFIER_PACKAGE} on testnet: ${verifierContractId}\n`);
   } else {
@@ -349,7 +388,11 @@ if (wantsVerifier || wantsRpsGame) {
       process.exit(1);
     }
 
-    console.log(`Deploying ${VERIFIER_PACKAGE}...`);
+    if (forceVerifierRedeploy) {
+      console.warn(`⚠️  --force enabled. Redeploying ${VERIFIER_PACKAGE}...`);
+    } else {
+      console.log(`Deploying ${VERIFIER_PACKAGE}...`);
+    }
     try {
       console.log("  Uploading WASM...");
       const uploadResult =

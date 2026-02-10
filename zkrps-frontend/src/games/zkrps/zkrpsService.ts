@@ -65,6 +65,15 @@ export class ZkrpsService {
 
       if (rpc.Api.isSimulationError(sim)) {
         lastError = sim.error;
+        if (
+          sim.error?.includes('verify_proof_poseidon2')
+          && sim.error?.includes('MissingValue')
+        ) {
+          throw new Error(
+            'Reveal move failed: verifier contract is missing verify_proof_poseidon2. ' +
+            'Redeploy contracts/verifier and re-initialize rps_game with the new verifier contract ID.'
+          );
+        }
         if (sim.error?.includes('Budget') || sim.error?.includes('ExceededLimit')) {
           continue;
         }

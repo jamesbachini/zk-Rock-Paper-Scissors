@@ -11,6 +11,7 @@
     "publish": "bun run scripts/publish.ts",
     "dev": "bun --cwd=sgs_frontend run dev",
     "dev:game": "bun run scripts/dev-game.ts",
+    "dev:zkrps": "bun run scripts/dev-zkrps.ts",
     "e2e": "node scripts/e2e.mjs"
   },
   "devDependencies": {

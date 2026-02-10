@@ -12,6 +12,14 @@ Ecosystem ready game templates and examples ready to scaffold into into your dev
 
 This repository includes a full ZK Rock/Paper/Scissors demo (`contracts/rps_game`, `contracts/verifier`, `circuits/rps_commit`, `zkrps-frontend`). The flow is commit → prove/reveal (Ultrahonk via bb.js) → finalize via GameHub.
 
+### One Command (Redeploy + Frontend)
+
+```bash
+bun run dev:zkrps
+```
+
+This force rebuilds/redeploys `mock-game-hub`, `ultrahonk_soroban_contract`, and `rps_game`, refreshes `zkrps-frontend` bindings, writes fresh IDs to root `.env`, and starts `zkrps-frontend`.
+
 ### Prerequisites
 
 - Bun (for scripts and frontends)
@@ -114,12 +122,13 @@ Then run E2E against local:
 ### Known Issues + Troubleshooting
 
 - **Proof verification failed:** for the primary path, do **not** pass `{ keccak: true }` (the on-chain primary verifier is Poseidon2 via `verify_proof_poseidon2`).
+- **`WasmVm, MissingValue` on `verify_proof_poseidon2`:** your verifier contract is an older deployment without `verify_proof_poseidon2`. Redeploy `contracts/verifier` with `vk.bin`, then re-run `rps_game init` with the new verifier ID.
 - **Budget exceeded on testnet:** Ultrahonk verification can exceed current testnet limits. Use a local RPC with higher limits.
 - **Public inputs mismatch:** must be 64 bytes, two 32-byte big-endian field elements in order `[commitment, move_public]`.
 - **Commitment mismatch:** commitment must be `Poseidon2Hash(Poseidon2Hash(session_id, move), salt)`.
 - **Missing salt:** reveal cannot be generated if localStorage was cleared.
 - **Deadline errors:** commit/reveal windows are ledger-based; if deadlines pass, only `finalize` is allowed.
-- **Verifier deploy requires `vk.bin`:** the generic `bun run deploy` flow does not inject VK; use the manual deploy command above or the E2E script.
+- **Verifier deploy requires `vk.bin`:** ensure `circuits/rps_commit/artifacts/vk.bin` exists before running `bun run dev:zkrps` or `bun run deploy ultrahonk_soroban_contract`.
 
 
 ## Why this exists
@@ -183,6 +192,7 @@ bun run deploy [game-name]            # Deploy all or selected contracts to test
 bun run bindings [game-name]          # Generate bindings for all or selected contracts
 bun run create my-game                # Scaffold contract + standalone frontend
 bun run dev:game my-game              # Run a standalone frontend with dev wallet switching
+bun run dev:zkrps                     # Force redeploy ZKRPS contracts and start zkrps frontend
 bun run publish my-game --build       # Export + build production frontend
 ```
 

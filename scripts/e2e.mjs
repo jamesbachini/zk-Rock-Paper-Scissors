@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
-import { readFile } from 'fs/promises';
+import { mkdtemp, readFile, rm } from 'fs/promises';
 import { existsSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { createRequire } from 'module';
 import { randomBytes } from 'crypto';
+import { tmpdir } from 'os';
 import {
   rpc,
   Keypair,
@@ -189,6 +190,22 @@ async function contractExists(server, contractId) {
   }
 }
 
+async function verifierSupportsPoseidon2(contractId, rpcUrl, networkPassphrase, networkName) {
+  const outDir = await mkdtemp(join(tmpdir(), 'verifier-bindings-'));
+  try {
+    run(
+      `stellar contract bindings typescript --contract-id ${contractId} --rpc-url ${rpcUrl} --network-passphrase "${networkPassphrase}" --network ${networkName} --output-dir ${outDir} --overwrite`,
+      { capture: true }
+    );
+    const source = await readFile(resolve(outDir, 'src', 'index.ts'), 'utf8');
+    return source.includes('verify_proof_poseidon2');
+  } catch {
+    return false;
+  } finally {
+    await rm(outDir, { recursive: true, force: true });
+  }
+}
+
 async function ensureFunded(address, horizonUrl, friendbotUrl) {
   const res = await fetch(`${horizonUrl}/accounts/${address}`);
   if (res.ok) return;
@@ -337,6 +354,21 @@ async function main() {
       return originalSimulate(tx, { cpuInstructions: extra + cpuLeeway }, authMode);
     };
     console.log(`ℹ️  Using simulation CPU leeway: ${cpuLeeway.toLocaleString()}`);
+  }
+
+  if (verifierContractId && await contractExists(server, verifierContractId)) {
+    const supportsPoseidon2 = await verifierSupportsPoseidon2(
+      verifierContractId,
+      rpcUrl,
+      networkPassphrase,
+      networkName
+    );
+    if (!supportsPoseidon2) {
+      console.log(
+        `ℹ️  Existing verifier ${verifierContractId} does not expose verify_proof_poseidon2. Redeploying verifier.`
+      );
+      verifierContractId = '';
+    }
   }
 
   if (friendbotUrl) {
