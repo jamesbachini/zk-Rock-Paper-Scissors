@@ -73,7 +73,7 @@ const contractsToBuild = selection.contracts;
 for (const contract of contractsToBuild) {
   console.log(`Building ${contract.packageName}...`);
   try {
-    await $`stellar contract build --manifest-path ${contract.manifestPath}`;
+    await $`stellar contract build --manifest-path ${contract.manifestPath} --optimize`;
     console.log(`✅ ${contract.packageName} built\n`);
   } catch (error) {
     console.error(`❌ Failed to build ${contract.packageName}:`, error);

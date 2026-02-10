@@ -173,11 +173,11 @@ async function ensureBuilds() {
   if (SKIP_BUILD) return;
   if (!existsSync(RPS_WASM)) {
     logStep('Building rps_game contract');
-    run('stellar contract build --manifest-path contracts/rps_game/Cargo.toml');
+    run('stellar contract build --manifest-path contracts/rps_game/Cargo.toml --optimize');
   }
   if (!existsSync(VERIFIER_WASM)) {
     logStep('Building verifier contract');
-    run('stellar contract build --manifest-path contracts/verifier/Cargo.toml');
+    run('stellar contract build --manifest-path contracts/verifier/Cargo.toml --optimize');
   }
 }
 
