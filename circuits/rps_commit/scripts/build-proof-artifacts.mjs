@@ -24,8 +24,8 @@ const { witness } = await noir.execute(inputs);
 
 const backend = new UltraHonkBackend(circuit.bytecode);
 await backend.instantiate();
-const proofData = await backend.generateProof(witness, { keccak: true });
-const verified = await backend.verifyProof(proofData, { keccak: true });
+const proofData = await backend.generateProof(witness);
+const verified = await backend.verifyProof(proofData);
 await backend.destroy();
 
 if (!verified) {

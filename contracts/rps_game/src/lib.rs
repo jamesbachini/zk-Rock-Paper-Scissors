@@ -231,7 +231,7 @@ fn verify_proof(
     proof_bytes: Bytes,
 ) -> Result<(), Error> {
     let args = vec![env, public_inputs.into_val(env), proof_bytes.into_val(env)];
-    let func = Symbol::new(env, "verify_proof");
+    let func = Symbol::new(env, "verify_proof_poseidon2");
     let result = env.try_invoke_contract::<(), InvokeError>(verifier, &func, args);
 
     match result {

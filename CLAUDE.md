@@ -1,4 +1,190 @@
-# AGENTS.md
+# AGENTS.md — ZK Rock Paper Scissors (Stellar + Noir + bb.js)
+
+This game is being built using the Stellar Game Studio. I have created a game called zkrps using:
+bun run create zkrps
+
+The frontend is in zkrps-frontend/
+
+The contracts are in contracts/zkrps
+
+The game is designed to be built **incrementally by AI agents (Codex)**.  
+Follow the task order strictly. Each task depends on the previous one being complete.
+
+The **authoritative product definition** lives in **`./spec.md`**.  
+If anything in prompts conflicts with this file, **spec.md wins**.
+
+---
+
+## 1. Project Goal
+
+Build a **2-player Rock / Paper / Scissors game** where:
+
+- Players commit to a move without revealing it.
+- Moves are later revealed using **zero-knowledge proofs (Noir + Ultrahonk)**.
+- Proofs are generated **in the browser** using **bb.js**.
+- Proofs are verified **on-chain** by a **Soroban smart contract**.
+- A shared **GameHub contract** is used to start and end games.
+- There is **no backend**.
+
+This is a **demonstration of Stellar x Noir integration**, not a production gambling app.
+
+---
+
+## 2. Source of Truth
+
+- 📄 **Specification:** `./spec.md`
+- 🧠 **Implementation tasks:** `./01.md` → `./05.md`
+
+Before writing code, **read spec.md fully**.
+
+---
+
+## 3. Task Order (MANDATORY)
+
+Run tasks in this order only:
+
+1. `01.md` — Soroban session lifecycle (mock reveal, no ZK)
+2. `02.md` — Noir circuit + bb.js artifacts
+3. `03.md` — Ultrahonk verifier integration (real proof verification)
+4. `04.md` — Frontend MVP (browser proving + RPC)
+5. `05.md` — Hardening, E2E automation, documentation
+
+❗ **Do not skip ahead.**  
+❗ **Do not mix tasks.**  
+❗ **Do not refactor earlier tasks unless required by spec.md.**
+
+---
+
+## 4. Coding Rules (Critical)
+
+### 4.1 General
+- Prefer **clarity over cleverness**
+- Avoid premature optimisation
+- Keep all logic **deterministic**
+- Never assume a trusted backend exists
+
+### 4.2 Soroban (Rust)
+- Use **Soroban SDK v25.x**
+- Avoid `unwrap()` in contract logic
+- Explicitly validate:
+  - auth
+  - deadlines
+  - session state transitions
+- Emit events for all state changes
+- Store minimal data; compute outcomes deterministically
+
+### 4.3 Noir
+- Circuits must:
+  - enforce `move ∈ {0,1,2}`
+  - bind move to commitment
+- Public outputs order MUST match spec.md exactly
+- Document all field encodings
+- Prefer Poseidon hash compatible with Barretenberg
+
+### 4.4 Frontend
+- Proof generation **must happen in the browser**
+- Never send plaintext move or salt to the chain
+- Store salt locally and warn user about losing it
+- Use Soroban RPC directly (no proxy server)
+- Handle failures gracefully (timeouts, missing salt, proof errors)
+
+---
+
+## 5. ZK Integration Rules (Very Important)
+
+- Commitment formula in frontend **must match circuit exactly**
+- Public inputs encoding must match:
+  - Noir output
+  - bb.js serialization
+  - Soroban verifier expectations
+- If verifier input format mismatches:
+  - Write a **Soroban adapter contract**
+  - Do NOT “fix” by altering circuit logic silently
+
+---
+
+## 6. Testing Expectations
+
+### Required at Each Stage
+
+- **Task 01**
+  - `cargo test` passes
+  - winner logic validated for all cases
+  - deadline / forfeit paths tested
+
+- **Task 02**
+  - Circuit compiles
+  - Proof verifies off-chain
+  - Public outputs sanity-checked
+
+- **Task 03**
+  - Contract verifies real proofs OR
+  - Mock verifier used with clear TODO marker
+  - At least one integration path exists
+
+- **Task 04**
+  - Two real wallets can complete a full game on testnet
+  - Proofs generated client-side only
+
+- **Task 05**
+  - One-command E2E demo works
+  - Docs sufficient for a new developer to reproduce
+
+---
+
+## 7. Allowed Assumptions
+
+- Testnet only
+- Wallet funding via Friendbot is acceptable
+- GameHub contract already exists and works as documented
+- Ultrahonk verifier contract may be vendored or adapted
+
+---
+
+## 8. Disallowed Shortcuts
+
+❌ No backend “for now”  
+❌ No plaintext reveal fallback in final build  
+❌ No skipping deadlines/forfeits  
+❌ No hardcoded moves or commitments  
+❌ No trusting frontend without cryptographic verification  
+
+---
+
+## 9. Style & Documentation
+
+- Every module should have a short README
+- Public functions should have doc comments
+- Explain *why* something exists, not just *what*
+- Leave clear TODOs where future work is expected
+
+---
+
+## 10. Completion Definition
+
+This project is complete when:
+
+- A user can open the frontend
+- Two players commit privately
+- Both generate ZK proofs in-browser
+- Soroban verifies proofs on-chain
+- GameHub is called to finalise the game
+- The winner is correct and deterministic
+
+If any part fails, **debug the integration before adding features**.
+
+---
+
+## 11. When in Doubt
+
+1. Re-read `spec.md`
+2. Prefer explicit validation over assumptions
+3. Choose determinism over UX convenience
+4. Ask: *“Can the chain verify this without trusting the UI?”*
+
+That question should guide every decision.
+
+-------------
 
 This repo is the Stellar Game Studio. Use this guide when building or updating games so AI tools can navigate the repo and follow the expected Soroban + frontend patterns.
 
@@ -102,3 +288,9 @@ bun run publish <game-name> --build   # Export + build production frontend
 - Standalone frontend uses the correct contract ID.
 - Studio catalog entry appears if imported.
 - Both players can complete a full game flow.
+
+## RPS Game Commands
+- Build contract: `stellar contract build --manifest-path contracts/rps_game/Cargo.toml`
+- Run tests: `cargo test -p rps_game`
+- Produce wasm: `stellar contract build --manifest-path contracts/rps_game/Cargo.toml`
+Output: `target/wasm32v1-none/release/rps_game.wasm`

@@ -94,7 +94,7 @@ export async function generateProof(
 
   try {
     onProgress?.('Downloading CRS / generating proof (first run can take a while)...');
-    const proofData = await backend.generateProof(witness, { keccak: true });
+    const proofData = await backend.generateProof(witness);
 
     const outputs = Array.isArray(returnValue) ? returnValue : [returnValue];
     if (outputs.length !== 2) {

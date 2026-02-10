@@ -2,6 +2,7 @@
 
 use crate::{
     field::Fr,
+    hash::TranscriptHash,
     shplemini::verify_shplemini,
     sumcheck::verify_sumcheck,
     transcript::generate_transcript,
@@ -42,11 +43,12 @@ impl UltraHonkVerifier {
         &self.vk
     }
 
-    /// Top-level verify
-    pub fn verify(
+    /// Internal verify with configurable hash function
+    fn verify_with_hash(
         &self,
         proof_bytes: &Bytes,
         public_inputs_bytes: &Bytes,
+        hasher: TranscriptHash,
     ) -> Result<(), VerifyError> {
         // 1) parse proof
         let proof = load_proof(proof_bytes);
@@ -77,6 +79,7 @@ impl UltraHonkVerifier {
             self.vk.circuit_size,
             pis_total,
             pub_inputs_offset,
+            &hasher,
         );
 
         // 4) Public delta
@@ -97,6 +100,24 @@ impl UltraHonkVerifier {
         verify_shplemini(&self.env, &proof, &self.vk, &t).map_err(VerifyError::ShplonkFailed)?;
 
         Ok(())
+    }
+
+    /// Top-level verify (Keccak transcript, backward compatible)
+    pub fn verify(
+        &self,
+        proof_bytes: &Bytes,
+        public_inputs_bytes: &Bytes,
+    ) -> Result<(), VerifyError> {
+        self.verify_with_hash(proof_bytes, public_inputs_bytes, TranscriptHash::Keccak)
+    }
+
+    /// Verify with Poseidon2 transcript
+    pub fn verify_poseidon2(
+        &self,
+        proof_bytes: &Bytes,
+        public_inputs_bytes: &Bytes,
+    ) -> Result<(), VerifyError> {
+        self.verify_with_hash(proof_bytes, public_inputs_bytes, TranscriptHash::Poseidon2)
     }
 
     fn compute_public_input_delta(

@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.dependencies]
-soroban-sdk = "25.0.2"
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e516750bd3e2d7624096b9681ad4174f6a7011a0" }
 
 [profile.release]
 opt-level = "z"

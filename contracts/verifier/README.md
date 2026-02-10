@@ -29,11 +29,24 @@ stellar contract deploy \
   --vk_bytes-file-path circuits/rps_commit/artifacts/vk.bin
 ```
 
-## Verify Function
+## Verify Functions
+
+### Primary: Poseidon2 Transcript
+
+`verify_proof_poseidon2(public_inputs: Bytes, proof_bytes: Bytes) -> Result<(), Error>`
+
+This is the **primary verification path** and uses **Poseidon2** for the Fiat–Shamir transcript.
+Poseidon2 is more efficient on Stellar/Soroban than Keccak-256 and avoids budget limit issues.
+
+### Legacy: Keccak Transcript
 
 `verify_proof(public_inputs: Bytes, proof_bytes: Bytes) -> Result<(), Error>`
 
-The verifier expects the `public_inputs` byte blob to be a **concatenation of
+Legacy verification using **Keccak-256** for the transcript. Maintained for backward compatibility.
+
+### Public Inputs Format
+
+Both functions expect the `public_inputs` byte blob to be a **concatenation of
 32-byte field elements** (big-endian) in the same order produced by the Noir
 circuit. For RPS, that is:
 
@@ -42,8 +55,10 @@ circuit. For RPS, that is:
 
 Total length: **64 bytes**.
 
-## Proof Generation Note (Keccak)
+## Proof Generation Note
 
-The Soroban verifier uses **Keccak-256** for the Fiat–Shamir transcript.
-When generating proofs in bb.js, pass `{ keccak: true }` so the proof matches
-the on-chain verifier.
+**Default (Poseidon2):** Generate proofs in bb.js without the `{ keccak: true }` flag.
+By default, bb.js uses Poseidon2 for the transcript, which matches `verify_proof_poseidon2`.
+
+**Legacy (Keccak):** To generate Keccak-based proofs for the legacy `verify_proof` entry point,
+pass `{ keccak: true }` to `backend.generateProof(witness, { keccak: true })`.

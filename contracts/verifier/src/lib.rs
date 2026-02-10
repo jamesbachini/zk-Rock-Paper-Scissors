@@ -33,7 +33,7 @@ impl UltraHonkVerifierContract {
         Ok(())
     }
 
-    /// Verify an Ultrahonk proof with the stored VK.
+    /// Verify an Ultrahonk proof with the stored VK (Keccak transcript).
     pub fn verify_proof(env: Env, public_inputs: Bytes, proof_bytes: Bytes) -> Result<(), Error> {
         if proof_bytes.len() as usize != PROOF_BYTES {
             return Err(Error::ProofParseError);
@@ -48,6 +48,25 @@ impl UltraHonkVerifierContract {
         let verifier = UltraHonkVerifier::new(&env, &vk_bytes).map_err(|_| Error::VkParseError)?;
         verifier
             .verify(&proof_bytes, &public_inputs)
+            .map_err(|_| Error::VerificationFailed)?;
+        Ok(())
+    }
+
+    /// Verify an Ultrahonk proof with the stored VK (Poseidon2 transcript).
+    pub fn verify_proof_poseidon2(env: Env, public_inputs: Bytes, proof_bytes: Bytes) -> Result<(), Error> {
+        if proof_bytes.len() as usize != PROOF_BYTES {
+            return Err(Error::ProofParseError);
+        }
+
+        let vk_bytes: Bytes = env
+            .storage()
+            .instance()
+            .get(&Self::key_vk())
+            .ok_or(Error::VkNotSet)?;
+
+        let verifier = UltraHonkVerifier::new(&env, &vk_bytes).map_err(|_| Error::VkParseError)?;
+        verifier
+            .verify_poseidon2(&proof_bytes, &public_inputs)
             .map_err(|_| Error::VerificationFailed)?;
         Ok(())
     }

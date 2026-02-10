@@ -19,7 +19,7 @@ await writeFile(resolve(artifactsDir, 'acir.bin'), acir);
 
 const backend = new UltraHonkBackend(circuitJson.bytecode);
 await backend.instantiate();
-const vk = await backend.getVerificationKey({ keccak: true });
+const vk = await backend.getVerificationKey();
 await backend.destroy();
 
 const vkBuffer = Buffer.from(vk);

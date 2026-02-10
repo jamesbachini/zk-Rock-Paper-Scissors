@@ -61,6 +61,14 @@ impl MockVerifier {
             Ok(())
         }
     }
+
+    pub fn verify_proof_poseidon2(_env: Env, _public_inputs: Bytes, proof_bytes: Bytes) -> Result<(), MockVerifierError> {
+        if proof_bytes.len() == 0 {
+            Err(MockVerifierError::InvalidProof)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 // ============================================================================
